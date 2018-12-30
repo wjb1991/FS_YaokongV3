@@ -27,7 +27,7 @@
 
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm8s.h"
+#include "Bsp.h"
 
 /* Private defines -----------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
@@ -35,12 +35,42 @@
 
 void main(void)
 {
-    /* Infinite loop */
+    Bsp_Init();
+    
+    Bsp_Motor_On();
+    
+    Init_Lcd();
+    
     while (1)
     {
+        Bsp_Beep_On();
+        Bsp_DelayMs(10);
+        Bsp_Beep_Off();
+        Bsp_DelayMs(10);
         
-    }
+        Display(0xFF,0xFF);            
+        Bsp_DelayMs(500);
+        //WaitKey();
+        
+        Display(0x00,0x00);    
+        Bsp_DelayMs(500); 
+        
+        Display1(0x33,0xCC);
+        Bsp_DelayMs(500);      
+
+        Display(0xAA,0xAA);  
+        Bsp_DelayMs(500); 
+            
+        Display(0xFF,0x00);
+        Bsp_DelayMs(500);    
+
+        Display(0x55,0xAA);
+        Bsp_DelayMs(500); 
+
+    }   
 }
+
+
 
 #ifdef USE_FULL_ASSERT
 

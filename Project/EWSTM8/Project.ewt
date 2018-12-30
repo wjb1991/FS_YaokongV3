@@ -13626,6 +13626,33 @@
         </settings>
     </configuration>
     <group>
+        <name>App</name>
+        <file>
+            <name>$PROJ_DIR$\..\..\App\App_Main.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\App\stm8s_it.c</name>
+        </file>
+    </group>
+    <group>
+        <name>Bsp</name>
+        <file>
+            <name>$PROJ_DIR$\..\..\Bsp\Bsp.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\Bsp\Bsp_Converter.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\Bsp\Bsp_Gpio.c</name>
+        </file>
+    </group>
+    <group>
+        <name>Mod</name>
+        <file>
+            <name>$PROJ_DIR$\..\..\Mod\Mod_OLED.c</name>
+        </file>
+    </group>
+    <group>
         <name>StdPeriph_Drivers</name>
         <file>
             <name>$PROJ_DIR$\..\..\Libraries\STM8S_StdPeriph_Driver\src\stm8s_adc1.c</name>
@@ -13701,15 +13728,6 @@
         </file>
         <file>
             <name>$PROJ_DIR$\..\..\Libraries\STM8S_StdPeriph_Driver\src\stm8s_wwdg.c</name>
-        </file>
-    </group>
-    <group>
-        <name>App</name>
-        <file>
-            <name>$PROJ_DIR$\..\..\App\App_Main.c</name>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\..\App\stm8s_it.c</name>
         </file>
     </group>
 </project>
