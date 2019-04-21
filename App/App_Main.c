@@ -29,7 +29,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "Bsp.h"
 
-
+#include "Mod_OLED.h"
 
 /* Private defines -----------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
@@ -37,6 +37,7 @@
 
 void main(void)
 {
+    int i = 0, j = 0,k = 0;
     Bsp_Init();
     Bsp_DelayMs(1000);
     Bsp_Motor_On();
@@ -46,11 +47,34 @@ void main(void)
     
     while (1)
     {
-        Bsp_Beep_On();
-        Bsp_DelayMs(10);
-        Bsp_Beep_Off();
-        Bsp_DelayMs(10);
+        //Bsp_Beep_On();
+        Bsp_DelayMs(300);
+        //Bsp_Beep_Off();
+        Bsp_DelayMs(300);
         
+        Mod_OLEDDisp_BatteryBar(i);
+        
+        Mod_OLEDDisp_PowBar(j);
+        
+        if(++i > 5)
+            i = 0;
+        
+        if(++j > 6)
+            j = 0;
+        
+        if(++k > 99)
+            k = 0;
+        
+        Mod_OLEDDisp_ChrgeIcon(i%2);
+        Mod_OLEDDisp_RfStateIcon(i%2);
+        Mod_OLEDDisp_BoardChrgeIcon(i%2);
+        Mod_OLEDDisp_HighSpeedIcom(i%2);
+        Mod_OLEDDisp_LowSpeedIcom(i%2);
+        Mod_OLEDDisp_PatrolIcom(i%2);
+        
+        Mod_OLEDDisp_SpeedNum(k);
+        
+        /*
         Mod_OLEDDispIcon_8x8(96,0,(INT8U*)ChrgeIcon);
         Mod_OLEDDispIcon_8x8(84,0,(INT8U*)RfStateIcon);
         
@@ -60,7 +84,7 @@ void main(void)
         Mod_OLEDDispIcon_8x8(24,3,(INT8U*)PatrolIcom);
         
         Mod_OLEDDispNum_32x16(40,5);
-        Mod_OLEDDispNum_32x16(60,1);
+        Mod_OLEDDispNum_32x16(60,1);*/
     }   
 }
 

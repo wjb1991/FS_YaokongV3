@@ -176,6 +176,13 @@ const unsigned char PatrolIcom[8] = {
 0x00,0x41,0x7F,0x7F,0x44,0x44,0x6C,0x38,
 };
 
+const unsigned char ClearIcom[8] = {
+/*--  调入了一幅图像：这是您新建的图像  --*/
+/*--  宽度x高度=8x8  --*/
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+
+
 void Delay_1ms(unsigned char delay); // 基准为1ms的延时函数,最大255ms
 void Init_Lcd(void);
 void Display(Uchar Data1,Uchar Data2);
@@ -390,7 +397,6 @@ BOOL Mod_OLEDDispIcon_8x8(INT8U line,INT8U page,INT8U* p_Data)
     return TRUE;
 }
 
-
 BOOL Mod_OLEDClear(void)
 {
     int i,j;     
@@ -406,6 +412,284 @@ BOOL Mod_OLEDClear(void)
     }
     return TRUE;
 }
+
+
+BOOL Mod_OLEDDisp_BatteryBar(INT8U PowLeven)
+{
+    static INT8U s_PowLeven = 5;
+    int i,j;
+    INT8U line;
+
+    INT8U line2;
+    INT8U line1;
+    
+    if(s_PowLeven != PowLeven)
+    {
+        s_PowLeven = PowLeven;
+        for(i = 0; i < 5; i++)
+        {
+            line = 123 - i* 3;
+
+            line2 = line/16;
+            line1 = line%16;  
+
+            Write_Command(0xB0+3-0);//set pageaddress start adress
+            Write_Command(0x00+line1);  //set lower column start address
+            Write_Command(0x10+line2);  //set higher column start address   
+
+            if(i >= PowLeven)
+            {
+                for(j=0;j<2;j++)
+                { 	      
+                  Write_Data(0x41);
+                }
+            }
+            else
+            {
+                for(j=0;j<2;j++)
+                { 	      
+                  Write_Data(0x5D);
+                }
+            }
+        } 
+    }
+    return TRUE;
+}
+
+BOOL Mod_OLEDDisp_PowBar(INT8U PowLeven)
+{
+    static INT8U s_PowLeven = 6;
+    int i,j;
+    INT8U line;
+    INT8U line2;
+    INT8U line1;
+    
+    INT8U data = 0;
+    
+    if(s_PowLeven != PowLeven)
+    {
+        s_PowLeven = PowLeven;
+        line = 3;
+        line2 = line/16;
+        line1 = line%16;  
+       
+        Write_Command(0xB0+3-3);    //set pageaddress start adress
+        Write_Command(0x00+line1);  //set lower column start address
+        Write_Command(0x10+line2);  //set higher column start address           
+        if(PowLeven > 0)
+        {
+            data = 0x76;
+        }
+        else
+        {
+            data = 0x06;
+        }
+        for(j=0;j<7;j++)
+        { 	      
+            Write_Data(data);
+        }
+        
+        
+        Write_Command(0xB0+3-2);    //set pageaddress start adress
+        Write_Command(0x00+line1);  //set lower column start address
+        Write_Command(0x10+line2);  //set higher column start address 
+        if(PowLeven < 2)
+        {
+            data = 0x00;        //PowLeven = 1
+        }
+        else if(PowLeven < 3)
+        {
+            data = 0x07;        //PowLeven = 2
+        }
+        else
+        {
+            data = 0x77;        //PowLeven = 3
+        }
+        for(j=0;j<7;j++)
+        { 	      
+            Write_Data(data);
+        }
+
+
+        Write_Command(0xB0+3-1);    //set pageaddress start adress
+        Write_Command(0x00+line1);  //set lower column start address
+        Write_Command(0x10+line2);  //set higher column start address 
+        if(PowLeven < 4)
+        {
+            data = 0x00;        //PowLeven = 3
+        }
+        else if(PowLeven < 5)
+        {
+            data = 0x07;        //PowLeven = 4
+        }
+        else
+        {
+            data = 0x77;        //PowLeven = 5
+        }
+        for(j=0;j<7;j++)
+        { 	      
+            Write_Data(data);
+        }
+        
+        Write_Command(0xB0+3-0);    //set pageaddress start adress
+        Write_Command(0x00+line1);  //set lower column start address
+        Write_Command(0x10+line2);  //set higher column start address 
+        if(PowLeven != 6)
+        {
+            data = 0xF0;        //PowLeven = 3
+        }
+        else
+        {
+            data = 0xF7;        //PowLeven = 4
+        }
+        
+        for(j=0;j<7;j++)
+        { 	      
+            Write_Data(data);
+        }
+        
+    }
+    return TRUE;
+}
+
+BOOL Mod_OLEDDisp_ChrgeIcon(BOOL State)
+{
+    static BOOL s_State = FALSE;
+    if(s_State!=State)
+    {
+        s_State = State;
+        if(State == TRUE)
+        {
+            Mod_OLEDDispIcon_8x8(96,0,(INT8U*)ChrgeIcon);
+        }
+        else
+        {
+            Mod_OLEDDispIcon_8x8(96,0,(INT8U*)ClearIcom);
+        }
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
+BOOL Mod_OLEDDisp_RfStateIcon(BOOL State)
+{
+    static BOOL s_State = FALSE;
+    if(s_State!=State)
+    {
+        s_State = State;
+        if(State == TRUE)
+        {
+            Mod_OLEDDispIcon_8x8(84,0,(INT8U*)RfStateIcon);
+        }
+        else
+        {
+            Mod_OLEDDispIcon_8x8(84,0,(INT8U*)ClearIcom);
+        }
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
+BOOL Mod_OLEDDisp_BoardChrgeIcon(BOOL State)
+{
+    static BOOL s_State = FALSE;
+    if(s_State!=State)
+    {
+        s_State = State;
+        if(State == TRUE)
+        {
+            Mod_OLEDDispIcon_8x8(24,0,(INT8U*)BoardChrgeIcon);
+        }
+        else
+        {
+            Mod_OLEDDispIcon_8x8(24,0,(INT8U*)ClearIcom);
+        }
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
+BOOL Mod_OLEDDisp_HighSpeedIcom(BOOL State)
+{
+    static BOOL s_State = FALSE;
+    if(s_State!=State)
+    {
+        s_State = State;
+        if(State == TRUE)
+        {
+            Mod_OLEDDispIcon_8x8(24,1,(INT8U*)HighSpeedIcom);
+        }
+        else
+        {
+            Mod_OLEDDispIcon_8x8(24,1,(INT8U*)ClearIcom);
+        } 
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
+BOOL Mod_OLEDDisp_LowSpeedIcom(BOOL State)
+{
+    static BOOL s_State = FALSE;
+    if(s_State!=State)
+    { 
+        s_State = State;
+        if(State == TRUE)
+        {
+            Mod_OLEDDispIcon_8x8(24,2,(INT8U*)LowSpeedIcom);
+        }
+        else
+        {
+            Mod_OLEDDispIcon_8x8(24,2,(INT8U*)ClearIcom);
+        }
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
+BOOL Mod_OLEDDisp_PatrolIcom(BOOL State)
+{
+    static BOOL s_State = FALSE;
+    if(s_State!=State)
+    {
+        s_State = State;
+        if(State == TRUE)
+        {
+            Mod_OLEDDispIcon_8x8(24,3,(INT8U*)PatrolIcom);
+        }
+        else
+        {
+            Mod_OLEDDispIcon_8x8(24,3,(INT8U*)ClearIcom);
+        } 
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
+BOOL Mod_OLEDDisp_SpeedNum(INT8U Num)
+{
+    static INT8U s_Num = 255;
+    
+    if(Num > 99)
+        Num = 99;
+    
+    if(s_Num!=Num)
+    {
+        s_Num = Num;
+        Mod_OLEDDispNum_32x16(40,s_Num/10);
+        Mod_OLEDDispNum_32x16(60,s_Num%10);
+        return TRUE;
+    }
+    else
+        return FALSE;
+}
+
 
 //*******************************************************
 //函数名称：Display
