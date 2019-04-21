@@ -29,6 +29,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "Bsp.h"
 
+
+
 /* Private defines -----------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
@@ -36,10 +38,11 @@
 void main(void)
 {
     Bsp_Init();
-    
+    Bsp_DelayMs(1000);
     Bsp_Motor_On();
     
-    Init_Lcd();
+    Mod_OLEDInit();
+    Mod_OLEDDisplay((INT8U*)bkgpic);
     
     while (1)
     {
@@ -48,25 +51,16 @@ void main(void)
         Bsp_Beep_Off();
         Bsp_DelayMs(10);
         
-        Display(0xFF,0xFF);            
-        Bsp_DelayMs(500);
-        //WaitKey();
+        Mod_OLEDDispIcon_8x8(96,0,(INT8U*)ChrgeIcon);
+        Mod_OLEDDispIcon_8x8(84,0,(INT8U*)RfStateIcon);
         
-        Display(0x00,0x00);    
-        Bsp_DelayMs(500); 
+        Mod_OLEDDispIcon_8x8(24,0,(INT8U*)BoardChrgeIcon);
+        Mod_OLEDDispIcon_8x8(24,1,(INT8U*)HighSpeedIcom);
+        Mod_OLEDDispIcon_8x8(24,2,(INT8U*)LowSpeedIcom);
+        Mod_OLEDDispIcon_8x8(24,3,(INT8U*)PatrolIcom);
         
-        Display1(0x33,0xCC);
-        Bsp_DelayMs(500);      
-
-        Display(0xAA,0xAA);  
-        Bsp_DelayMs(500); 
-            
-        Display(0xFF,0x00);
-        Bsp_DelayMs(500);    
-
-        Display(0x55,0xAA);
-        Bsp_DelayMs(500); 
-
+        Mod_OLEDDispNum_32x16(40,5);
+        Mod_OLEDDispNum_32x16(60,1);
     }   
 }
 
