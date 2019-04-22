@@ -32,22 +32,6 @@ void  Bsp_Init (void)
     Bsp_GpioInit();
 }
 
-void Bsp_DelayMs(INT16U ui_Delay)
-{
-    INT16U i = 0; 
-    INT8U k = 0; 
-    INT16U j = 0;
-    for(j = 0; j < ui_Delay; j++)
-    {
-        for(i = 0; i < 2300; i++)
-        {
-            for( k = 0 ; k < 200; k--)
-            {
-              
-            }
-        }
-    }
-}
 
 void Bsp_Printf(char * string)
 {

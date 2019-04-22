@@ -31,8 +31,7 @@ extern  "C" {                                  /* See Note #1.                  
 #include  "Bsp_Datatype.h"
 #include  "Bsp_Converter.h"
 #include  "Bsp_Gpio.h"
-
-#include  "Mod_OLED.h"
+#include  "Bsp_Delay.h"
 
 /*__CMSIS_IAR_H__ 中有常用的宏定义 */
   
@@ -43,7 +42,6 @@ inline void Bsp_IntDis(void){ disableInterrupts(); }
 inline void Bsp_IntEn(void){ enableInterrupts(); }
 
 void Bsp_Printf(char * string);
-void Bsp_DelayMs(INT16U ui_Dealy);
 //#define	Bsp_Printf		Bsp_UartPrintf
 
 //#define	TRACE_DBG 	    //Bsp_UartPrintf

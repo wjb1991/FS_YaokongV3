@@ -12,6 +12,7 @@
 
 #include "Bsp.h"
 
+
 #define Uchar unsigned char
 #define Uint  unsigned int
 
@@ -191,6 +192,8 @@ void DisplayPicture(Uchar *PIC);
 void Delay(Uint t);
 void Write_Command_SPI(Uchar Command);
 void Write_Data_SPI(Uchar Data);
+
+BOOL Mod_OLEDClear(void);
 
 //*******************************************************
 //º¯ÊýÃû³Æ£ºInit_LCD
@@ -382,7 +385,7 @@ BOOL Mod_OLEDDispNum_32x16(INT8U line,INT8U num)
 
 BOOL Mod_OLEDDispIcon_8x8(INT8U line,INT8U page,INT8U* p_Data)
 {
-    int i,j;
+    int j;
     INT8U line2 = line/16;
     INT8U line1 = line%16;
 

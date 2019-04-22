@@ -8705,7 +8705,7 @@
                 </option>
                 <option>
                     <name>IlinkProgramEntryLabelSelect</name>
-                    <state>1</state>
+                    <state>0</state>
                 </option>
                 <option>
                     <name>IlinkProgramEntryLabel</name>
@@ -10451,6 +10451,12 @@
             <name>$PROJ_DIR$\..\..\App\App_Main.c</name>
         </file>
         <file>
+            <name>$PROJ_DIR$\..\..\App\BK2425_Init.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\App\BK2425_TxRx.c</name>
+        </file>
+        <file>
             <name>$PROJ_DIR$\..\..\App\stm8s_it.c</name>
         </file>
     </group>
@@ -10461,6 +10467,9 @@
         </file>
         <file>
             <name>$PROJ_DIR$\..\..\Bsp\Bsp_Converter.c</name>
+        </file>
+        <file>
+            <name>$PROJ_DIR$\..\..\Bsp\Bsp_Delay.c</name>
         </file>
         <file>
             <name>$PROJ_DIR$\..\..\Bsp\Bsp_Gpio.c</name>
