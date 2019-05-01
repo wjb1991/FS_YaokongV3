@@ -38,7 +38,7 @@
 //输入处理
 void InPut_Proce(void)  
 {
-    if (STDBYVal())                 //充电充满端口检测
+    if (Bsp_STDBY_Read())                 //充电充满端口检测
     {
         if (stdbcnt & 0x80)
         {
@@ -64,7 +64,7 @@ void InPut_Proce(void)
     }
 
 
-    if (CHRGEVal())                 //正在充电端口检测
+    if (Bsp_CHRG_Read())                 //正在充电端口检测
     {
         if (chargecnt & 0x80)
         {
@@ -89,9 +89,9 @@ void InPut_Proce(void)
         }
     }
 
-    Delay200us();                   //延时200us 等待按键端口电平稳定
+    //Delay200us();                   //延时200us 等待按键端口电平稳定
 
-    if (KEYVal())                   //按键端口检测
+    if (Bsp_POWKEY_Read())                   //按键端口检测
     {
         if (keycnt & 0x80)
         {
@@ -151,6 +151,20 @@ static void Switch_RunDir(void)
             DirMode = Forward;
     }
 }
+
+//切换遥控模块到发送地址模式 用于配对
+void SwitchRFtoAddrSendMode(void)   
+{
+    RF_Mode = RF_AddrSendMode;
+    SetTXAddr(Common_Addr); //公共地址发
+}
+//切换遥控模块到工作模式
+void SwitchRFtoWorkMode(void)       
+{
+    RF_Mode = RF_WorkMode;
+    SetTXAddr(TX_Addr);     //私用地址发
+}
+
 //第一次运行处理    
 static void FirstRunFlag_Proce(void)    
 {
@@ -194,9 +208,9 @@ void Key_Proce(void)
     if (keytime == 200)                         //按键按下的时间到达 200*10ms = 2s  
     {
         PoweFlag = FALSE;                       //断电
-        Beep_Enable();                          //蜂鸣器滴一声    
+        Bsp_Beep_On();                          //蜂鸣器滴一声    
         Delay_Ms(200);
-        Beep_Disable();
+        Bsp_Beep_Off();
     }
 
     //if( keytime == 252 )      //250*20ms = 5s  
@@ -204,32 +218,29 @@ void Key_Proce(void)
       //对码用
     //}
 }
+
 //Time2中断服务处理
-void TIM2_UPDATE_IRQ(void)                      
+void Tim4_Updata_Irq(void)                      
 {
     static UINT16 ms_cnt = 0;
-		
-		if (TIM2_SR1 & (1 << UIF))
+
+    if (SendTick < 255)                     //系统时间片累加
+    SendTick++;
+
+    if(ms_cnt%5 == 0)
     {
-        TIM2_SR1 &= ~(1 << UIF);
-				ms_cnt++;
-				
-				if (SendTick < 255)                     //系统时间片累加
-            SendTick++;
-				
-        if(ms_cnt%5 == 0)
-				{
-					if (SysTick < 250)                      //系统时间片累加
-							SysTick++;
-	
-					if (RF_WDog < 255)                      //无线短线时间累加    //20170123从255改为250，为了修改有时遥控器失去和主控的联系后12号灯不闪，但改为250之后经常会遥控器灯老会显示和主控失去联系但事实遥控器又能控制主控
-							RF_WDog++;
-	
-					if (AutoPowerDownTime < 10000000)       //自动关机时间累加
-							AutoPowerDownTime++;
-				}
+        if (SysTick < 250)                      //系统时间片累加
+            SysTick++;
+
+        if (RF_WDog < 255)                      //无线短线时间累加    //20170123从255改为250，为了修改有时遥控器失去和主控的联系后12号灯不闪，但改为250之后经常会遥控器灯老会显示和主控失去联系但事实遥控器又能控制主控
+            RF_WDog++;
+
+        if (AutoPowerDownTime < 10000000)       //自动关机时间累加
+            AutoPowerDownTime++;
     }
 }
+
+/*
 //按键中断服务处理函数 唤醒用
 void KEY_INTERRUPT_IRQ(void)                    
 {
@@ -265,7 +276,7 @@ void CHARGE_INTERRUPT_IRQ(void)
     else                                    //开启唤醒
         ChargeFlag = FALSE;                 //充电端口抖动  
 }                                           
- 
+
 void Wakeup_Enable(void)
 {
     EXTI->CR1 &= 0x3c;            //PA口上升沿中断PD口下降沿中断
@@ -298,9 +309,227 @@ void Wakeup_Disable(void)
 
     //ITC->ISPR1 &= 0x3f;           //中断优先级 
 }
+ */
+
+
+//获取ADC偏置值
+void ADC_GetBase(void)                         
+{
+    UINT8 i;
+    UINT16 	Ad_val = 0;
+    UINT8	ad_cnt = 0;
+    UINT16	ad_sum = 0;
+    UINT16	ad_max = 0;
+    UINT16	ad_min = 0;
+    while (ad_cnt < 34)                         //取34次结果
+    {
+        ADC1_ConversionConfig(ADC1_CONVERSIONMODE_SINGLE,
+                              ADC1_CHANNEL_9,
+                              ADC1_ALIGN_RIGHT);
+
+        ADC1_StartConversion();                 //开启转换
+        
+        while (ADC1_GetFlagStatus(ADC1_FLAG_EOC) != SET)        //等待转换结束
+        {
+            
+        }
+        
+        Ad_val = ADC1_GetConversionValue();     //获取ADC的值
+
+        if (ad_cnt == 0)
+        {
+            ad_max = ad_min = ad_sum = Ad_val;
+        }
+        else
+        {
+            ad_sum += Ad_val;
+
+            if (Ad_val > ad_max)
+                ad_max = Ad_val;
+            if (Ad_val < ad_min)
+                ad_min = Ad_val;
+
+        }
+
+        ad_cnt++;
+        if (ad_cnt >= 34)
+        {
+            ad_sum = ad_sum - ad_max - ad_min;
+        }
+
+    }
+    Ad_Base = ad_sum >> 5;                  //算出平均值
+    for (i = 0; i < 10; i++)            
+    {
+        AD_Buff[i] = Ad_Base;               //填充buff
+    }
+}
+
+//ADC处理
+void ADC_Proce(void)                    
+{
+    UINT16 times = 0;                    //20170220 增加，为了解决遥控器失联的问题
+		
+    INT16 Ad_val = 0;
+    
+    ADC1_ConversionConfig(ADC1_CONVERSIONMODE_SINGLE,
+                          ADC1_CHANNEL_9,
+                          ADC1_ALIGN_RIGHT);
+
+    ADC1_StartConversion();             //开启转换
+    while (ADC1_GetFlagStatus(ADC1_FLAG_EOC) != SET)      //20170220 增加 为了解决遥控器失联的问题
+    {
+        times++;                           //20170220 增加，为了解决遥控器失联的问题
+        if(times > 1000)                   //20170220 增加，为了解决遥控器失联的问题
+        {
+            times = 0;
+            return;                         //20170220 增加， 为了解决遥控器失联的问题
+        }
+    }
+    
+    Ad_val = ADC1_GetConversionValue(); //获取ADC转换结果
+    RP_ADValue = Ad_Base - Ad_val;      //偏置量减去采集量  获得电位器位置
+
+    if (((UINT16)(Ad_val)) < 40 || ((UINT16)(Ad_val)) > (1024 - 40))//ADC转换结果太小 或 太大 出发遥控器短线报警
+    {
+        if (err_rp_flag == 0)
+            err_rp_flag = 1;                //遥控器短线报警
+    }
+
+    ADC1_ConversionConfig(ADC1_CONVERSIONMODE_SINGLE,
+                          ADC1_CHANNEL_8,
+                          ADC1_ALIGN_RIGHT);
+    ADC1_StartConversion();                 //开启转换
+    
+    while (ADC1_GetFlagStatus(ADC1_FLAG_EOC) != SET)       //20170220 增加 为了解决遥控器失联的问题
+    {
+        times++;                           //20170220 增加，为了解决遥控器失联的问题
+        if(times > 1000)                   //20170220 增加，为了解决遥控器失联的问题
+        {
+            times = 0;
+            return;                         //20170220 增加， 为了解决遥控器失联的问题
+        }
+    }
+    
+    Ad_val = ADC1_GetConversionValue();     //获取ADC转换结 果
+
+    if (ADCPowVal_Cnt == 0)                 
+    {
+        ADCPowVal_Sum = 0;
+        ADCPowVal_Max = Ad_val;
+        ADCPowVal_Min = Ad_val;
+    }
+    else
+    {
+        if (Ad_val < ADCPowVal_Min)
+            ADCPowVal_Min = Ad_val;
+        if (Ad_val > ADCPowVal_Max)
+            ADCPowVal_Max = Ad_val;
+    }
+    ADCPowVal_Sum += Ad_val;
+
+    ADCPowVal_Cnt++;
+    if (ADCPowVal_Cnt >= 10)
+    {
+
+        ADCPowVal_Cnt = 0;
+        ADCPowVal_Fix = (ADCPowVal_Sum - ADCPowVal_Min - ADCPowVal_Max) >> 3;
+        if (ADCPowVal_Fix > 540)
+            ADCPowVal_LPFlag = TRUE;
+        else
+            ADCPowVal_LPFlag = FALSE;
+
+    }
+}
 
 
 
+//遥控器发送数据
+void RF_SendData(void)              
+{
+    static UINT8 RfTick = 0;
+    UINT8 i;
+    //if (RfTick >= 1)     //10ms * 10 = 100ms    //20170111从10改为2收发周期从100ms改为20ms   主控是收2次发1次  //20170215改1 //20170219 改0配对不上
+    if(1)
+    {
+        RfTick = 0;
+        SwitchToTxMode();           //切换到发送模式
+        for (i = 0; i < 20; i++);     //等5us
+
+        if (RF_Mode == RF_AddrSendMode)     //在发送地址模式 配对模式    
+        {
+
+            TX_Buff[0] = 0xcc;              //帧头    
+            TX_Buff[1] = TX_Addr[0];        //发送地址
+            TX_Buff[2] = TX_Addr[1];        
+            TX_Buff[3] = TX_Addr[2];
+            TX_Buff[4] = TX_Addr[3];
+            TX_Buff[5] = TX_Addr[4];
+            TX_Buff[6] = TX_Buff[0] + TX_Buff[1] + TX_Buff[2]
+                + TX_Buff[3] + TX_Buff[4] + TX_Buff[5]; //校验
+
+            Send_Packet(WR_TX_PLOAD, TX_Buff, 7);   //发送数据包
+
+        }
+        else
+        {                                   //工作模式
+            UINT8 i;                        //AD取平均  已不用
+            UINT16 max = AD_Buff[0];
+            UINT16 min = AD_Buff[0];
+            UINT16 sum = 0;
+
+            for (i = 0; i < 10; i++)
+            {
+                if (AD_Buff[i] > max)
+                    max = AD_Buff[i];
+            }
+
+            for (i = 0; i < 10; i++)
+            {
+                if (AD_Buff[i] < min)
+                    min = AD_Buff[i];
+            }
+
+            for (i = 0; i < 10; i++)
+            {
+                sum += AD_Buff[i];
+            }
+
+            sum = sum - max - min;
+            //RP_ADValue = sum/8;
+            //RP_ADValue = Ad_Base - RP_ADValue;
+						
+            if (RP_ADValue < 58 && RP_ADValue > -58) //20170122增，减少遥控器的死区，这样就可以不改主控
+              RP_ADValue = 10;                       //20170122增，减少遥控器的死区，这样就可以不改主控
+
+            TX_Buff[0] = 0xa5;                          //帧头
+            if (RPPowUpReset == FALSE &&  err_rp_flag == 0)
+            {                                               //复位完成 并且 电位器未报警 输出电位器的值                                                
+                TX_Buff[1] = (UINT8)(RP_ADValue >> 8);      //电位器高8位
+                TX_Buff[2] = (UINT8)(RP_ADValue & 0x00ff);  //电位器低8位                
+            }
+            else
+            {                       //复位未完成输出0
+                TX_Buff[1] = 0;     //电位器高8位
+                TX_Buff[2] = 0;  //电位器低8位                
+            }
+
+            TX_Buff[3] = ((SpeedMode & 0x01) << 0) | ((DirMode & 0x01) << 1 | (err_code == 4) << 2);    //b0 速度模式 b1 电机方向 b2 关机指令
+            TX_Buff[4] = 0xa5 + TX_Buff[1] + TX_Buff[2] + TX_Buff[3];   //校验和
+            Send_Packet(WR_TX_PLOAD, TX_Buff, 5);       //发送数据包   
+					//	Send_Packet(WR_TX_PLOAD, TX_Buff, 5);       //发送数据包    20170121增加一次发送，导致遥控器1或2号LED闪烁
+        }
+
+       // Delay_Ms(10);  //等待10ms 20170121原10改12，增加发送的时间，导致遥控器1或2号LED闪烁 //20170218增，解决遥控器和主控失联的问题
+    }
+    else
+    {
+        RfTick++;
+    }
+
+   //if (RfTick == 1)      //20170215增
+    SwitchToRxMode();                                   //切换到接受模式
+}
 
 //遥控器数据处理
 UINT8 dBuff[10] = { 0 };
@@ -394,59 +623,45 @@ UINT8 RF_DataProcess(UINT8 len, UINT8 *pBuff)
             && dBuff[5] == TX_Addr[4]
             && dBuff[6] == checksum)
         {
-#if  0
+
             SwitchRFtoWorkMode();                                       //切换到工作模式
-            ADC1_GetBase();                                             //获取ADC偏置值
-            Beep_Enable();                                              //嘀 嘀 嘀~
+            ADC_GetBase();                                             //获取ADC偏置值
+            Bsp_Beep_On();                                              //嘀 嘀 嘀~
             Delay_Ms(100);
-            Beep_Disable();
+            Bsp_Beep_Off();
             Delay_Ms(100);
-            Beep_Enable();
+            Bsp_Beep_On();
             Delay_Ms(100);
-            Beep_Disable();
+            Bsp_Beep_Off();
             Delay_Ms(100);
-            Beep_Enable();
+            Bsp_Beep_On();
             Delay_Ms(1000);
-            Beep_Disable();
-#endif
+            Bsp_Beep_Off();
         }
     }
     return 0;
 }
 
-
-
-//系统初始化
-void System_Init(void)          
+//遥控处理
+void RF_Proce(void)                                     
 {
-    Bsp_Init();
-    Bsp_DelayMs(1000);
-    Bsp_Motor_Off();
-    Bsp_Beep_Off();
-    
-    Mod_OLEDInit();
-    Mod_OLEDDisplay((INT8U*)bkgpic);
+    if (ChargeFlag == FALSE)                            //是否在充电 
+    {                                                   //不充电时才接受和发送数据
+        //Receive_Packet();                               //接受数据
+        //RF_SendData();                                  //发送数据
+        if(Receive_Packet() != 0) 
+        {
+                RF_SendData();
+                SendTick = 0;
+        }
 
-    Delay_Ms(100);
-   
-#if 0
-    
-    GetChipID();
-    BK2425_Initialize((void*)RF_DataProcess, TX_Addr, RX1_Addr, TX_Addr);     //自己的地址发送接收 
-
-
-    ADC1_Initialize();      //ADC初始化
-    ADC1_Base_Copy();
-    ADC1_StartConversion(); //ADC开始转换
-
-
-    tim2ini();              //定时器2初始化
-    tim2start();            //开启定时器2
-
-    Value_Init();           
-
-    enableinterrupt();      //开启中断
-#endif
+        if (RF_WDog == 250)                             //10ms * 250 = 2.5s 内没有接受到数据
+        {
+            RF_State = RF_Disconnect;                   //无线模块状态为断线
+            RF_Cont = 0;
+            BatteryNum = 0;                             //电池电量为0
+        }
+    }
 }
 
 //获取遥控器的ID
@@ -466,15 +681,653 @@ void GetChipID(void)
 
 }
 
+//LED处理
+void LED_Proce(void)                                                    
+{
+#if 0
+    static UINT8 led_time = 0;
+    led_time++;
+    if (ChargeFlag == FALSE)                                //是否在充电
+    {
+        /**/                                                //不在充电 正常工作
+        if (err_code != 0 || err_rp_flag == 1)              //有错误  
+        {
+            static UINT8 led_cnt = 0;                       //led计数
+            if (err_code != 4)                              //不是过温度报警
+            {                                                   
+                if (led_cnt == 0xff)                        //长灭一次       
+                {
+                    if (led_time < 40)
+                    {
+                        CloseLed1();
+                        CloseLed2();
+                    }
+                    else
+                    {
+                        led_time = 0;
+                        led_cnt = 0;
+                    }
+                }
+                else
+                {
+                    static UINT8 led_flag = 0;
+                    if ((err_rp_flag == 0 && led_cnt < err_code)    //短闪err_code的次数
+                        || (err_rp_flag == 1 && led_cnt < 4))       //电位器报警闪烁4次    
+                    {
+                        if (led_time < 25)
+                        {
+                            OpenLed1();
+                            OpenLed2();
+
+                        }
+                        else if (led_time < 50)
+                        {
+                            CloseLed1();
+                            CloseLed2();
+
+                        }
+                        else
+                        {
+                            led_time = 0;
+                            led_cnt++;                              //闪烁次数增加    
+                        }
+                    }
+                    else
+                    {
+                        led_cnt = 0xff;
+                    }
+                }
+            }
+            else
+            {                                               //过温度报警 所有LED闪烁 蜂鸣器叫
+                if (led_time < 25)                          
+                {
+                    OpenLed1();
+                    OpenLed2();
+                    OpenLed3();
+                    OpenLed4();
+                    OpenLed5();
+                    Beep_Enable();
+                }
+                else if (led_time < 50)
+                {
+                    CloseLed1();
+                    CloseLed2();
+                    CloseLed3();
+                    CloseLed4();
+                    CloseLed5();
+                    Beep_Disable();
+                }
+                else
+                {
+                    led_time = 0;
+                }
+                /*
+                if(led_cnt == 0xff)
+                {
+                  if( led_time < 25 )
+                  {
+                    CloseLed1();
+                    CloseLed2();
+                  }
+                  else
+                  {
+                    led_time = 0;
+                    led_cnt = 0;
+                  }
+                }
+                else
+                {
+                  static UINT8 led_flag = 0;
+                  if((err_rp_flag == 0 && led_cnt < err_code)
+                    ||(err_rp_flag == 1 && led_cnt < 10) )
+                  {
+                    if( led_time < 25 )
+                    {
+                      OpenLed1();
+                      OpenLed2();
+                    }
+                    else if(led_time < 50)
+                    {
+                      CloseLed1();
+                      CloseLed2();
+                    }
+                    else
+                    {
+                      led_time = 0;
+                      led_cnt++;
+                    }
+                  }
+                  else
+                  {
+                    led_cnt = 0xff;
+                  }
+                }
+                */
+            }
+        }
+        else
+        {
+            if (RF_Mode == RF_WorkMode)                     //工作模式
+            {
+                if (SpeedMode == LowSpeedMode)              //低速模式
+                {
+                    if (RF_State == RF_Disconnect)          //断开连接闪LED1
+                    {
+                        if (led_time < 50)
+                        {
+                            CloseLed1();
+                        }
+                        else if (led_time < 100)
+                        {
+                            OpenLed1();
+                        }
+                        else
+                        {
+                            led_time = 0;
+                        }
+                    }
+                    else
+                        OpenLed1();                         //连接时常量LED1
+                    CloseLed2();                            //关闭LED2
+                }
+                else if (SpeedMode == HighSpeedMode)        //高速模式
+                {
+                    if (RF_State == RF_Disconnect)          //断开连接闪LED2
+                    {
+                        if (led_time < 50)
+                        {
+                            CloseLed2();
+                        }
+                        else if (led_time < 100)
+                        {
+                            OpenLed2();
+                        }
+                        else
+                        {
+                            led_time = 0;
+                        }
+                    }
+                    else
+                        OpenLed2();                         //连接时常量LED2
+                    CloseLed1();                            //关闭LED1
+                }
+                else
+                {
+
+                }
+                //led 34
+                if (BatteryNum == 0)                        //根据主电池电量点亮LED LED5需要考虑遥控器电量
+                {
+                    CloseLed4();
+                    CloseLed3();
+                }
+                else if (BatteryNum <= 10)
+                {
+                    CloseLed4();
+                    CloseLed3();
+                }
+                else if (BatteryNum <= 40)
+                {
+                    CloseLed4();
+                    CloseLed3();
+                }
+                else if (BatteryNum <= 70)
+                {
+                    OpenLed4();
+                    CloseLed3();
+                }
+                else if (BatteryNum <= 100)
+                {
+                    OpenLed4();
+                    OpenLed3();
+                }
+                else
+                {
+
+                }
+
+
+            }
+            else        
+            {                                               //配对模式
+                static UINT8 i;
+                if (++i >= 10)                              
+                    i = 0;
+
+                if (i >= 5)                                 //快闪LED
+                {
+                    if (SpeedMode == LowSpeedMode)          //根据速度模式决定快闪哪个LED
+                    {
+                        OpenLed1();
+                    }
+                    else
+                    {
+                        OpenLed2();
+                    }
+                }
+                else
+                {
+                    CloseLed1();
+                    CloseLed2();
+                }
+
+                CloseLed3();
+                CloseLed4();
+
+            }
+
+        }
+
+
+        //led 5 的处理
+        /**/
+        if (err_code != 4)
+        {   //没有过温报警
+            if (ADCPowVal_LPFlag && (BatteryNum > 0 && BatteryNum <= 10))   //遥控器没电 且 主电池没电
+            {
+                //慢闪加快闪
+                static uint8_t led_time1 = 0;
+                static uint8_t led_cnt = 0;
+                static uint8_t led_status = 0;
+
+                if (led_status == 0)  //1s
+                {
+                    if (++led_time1 >= 100)
+                    {
+                        led_time1 = 0;
+                        led_status = 1;
+                    }
+                    CloseLed5();
+                    Beep_Disable();
+
+                }
+                else if (led_status == 1)
+                {
+                    //遥控器没电慢闪
+                    led_time1++;
+                    if (led_time1 < 50)
+                    {
+                        OpenLed5();
+                        Beep_Enable();
+                    }
+                    else if (led_time1 < 100)
+                    {
+                        CloseLed5();
+                        Beep_Disable();
+                    }
+                    else
+                    {
+                        led_time1 = 0;
+                        if (++led_cnt >= 3)
+                        {
+                            led_cnt = 0;
+                            led_status = 2;
+                        }
+                    }
+                }
+                else if (led_status == 2)  //1s
+                {
+                    if (++led_time1 >= 100)
+                    {
+                        led_time1 = 0;
+                        led_status = 3;
+                    }
+
+                    CloseLed5();
+                    Beep_Disable();
+
+                }
+                else
+                {
+                    //主电池没电遥控器快闪
+                    led_time1++;
+                    if (led_time1 < 20)
+                    {
+                        OpenLed5();
+                        Beep_Enable();
+                    }
+                    else if (led_time1 < 40)
+                    {
+                        CloseLed5();
+                        Beep_Disable();
+                    }
+                    else
+                    {
+                        led_time1 = 0;
+                        if (++led_cnt >= 6)
+                        {
+                            led_cnt = 0;
+                            led_status = 0;
+                        }
+                    }
+                }
+            }
+            else if (ADCPowVal_LPFlag)                              //遥控器没电
+            {
+                //遥控器没电慢闪
+                static uint8_t led_time1 = 0;
+
+                if (++led_time1 > 100)
+                {
+                    led_time1 = 0;
+                }
+
+                if (led_time1 < 50)
+                {
+                    OpenLed5();
+                    Beep_Enable();
+                }
+                else if (led_time1 < 100)
+                {
+                    CloseLed5();
+                    Beep_Disable();
+                }
+
+
+            }
+            else                                                    //其他情况
+            {
+                if (RF_State == RF_Connect)
+                {
+                    if (BatteryNum == 0)
+                    {
+                        CloseLed5();
+                       // Beep_Disable();   //20170220删，为了使主电池没有电量时蜂鸣器快速叫
+											 if (led_time < 10)     //20170220删，为了使主电池没有电量时蜂鸣器快速叫 
+                        {
+                            Beep_Enable();    //20170220删，为了使主电池没有电量时蜂鸣器快速叫 
+                        }
+                        else if (led_time < 20)   //20170220删，为了使主电池没有电量时蜂鸣器快速叫
+                        {
+                            Beep_Disable();       //20170220删，为了使主电池没有电量时蜂鸣器快速叫
+                        }
+                        else
+                        {
+                            led_time = 0;         //20170220删，为了使主电池没有电量时蜂鸣器快速叫
+                        }
+                    }
+                    else if (BatteryNum <= 10)
+                    {
+                        //主电池没电遥控器快闪
+                        if (led_time < 20)
+                        {
+                            OpenLed5();
+                            Beep_Enable();
+                        }
+                        else if (led_time < 40)
+                        {
+                            CloseLed5();
+                            Beep_Disable();
+                        }
+                        else
+                        {
+                            led_time = 0;
+                        }
+                    }
+                    else
+                    {
+                        Beep_Disable();
+                        OpenLed5();
+                    }
+                }
+                else
+                {
+                    Beep_Disable();
+                    OpenLed5();
+                }
+
+            }
+        }
+        /*
+            if(err_code == 4 )//|| ADCPowVal_LPFlag)
+            {
+              static beep_cnt = 0;
+              if(++beep_cnt >= 40)
+              {
+                beep_cnt = 0;
+              }
+
+              if( beep_cnt < 20)
+              {
+                Beep_Enable();
+              }
+              else
+              {
+                Beep_Disable();
+              }
+            }
+        */
+    }
+    else                                    
+    {   //充电LED闪烁 
+        static UINT8 ledtime = 0;
+
+        if (stdbcnt == 0x00)
+        {
+            OpenLed1(); OpenLed2(); OpenLed3();
+            OpenLed4(); OpenLed5();
+        }
+        else
+        {
+            //2.75~4.2  base 2.8 dv 0.23
+            //2.8(540)3.15(510) 3.5(466) 3.85(432) 4.2(409)
+            //2.8(540)3.03(522) 3.26(499) 3.5(464) 3.72(447)3.95(430)
+            ++ledtime;
+            if (ledtime < 40)
+            {
+                CloseLed1(); CloseLed2(); CloseLed3();
+                CloseLed4(); CloseLed5();
+            }
+            else if (ledtime < 80)
+            {
+                CloseLed1(); CloseLed2(); CloseLed3();
+                CloseLed4(); OpenLed5();
+            }
+            else if (ledtime < 120)
+            {
+                CloseLed1(); CloseLed2(); CloseLed3();
+                OpenLed4(); OpenLed5();
+            }
+            else if (ledtime < 160)
+            {
+                CloseLed1(); CloseLed2(); OpenLed3();
+                OpenLed4(); OpenLed5();
+            }
+            else if (ledtime < 200)
+            {
+                CloseLed1(); OpenLed2(); OpenLed3();
+                OpenLed4(); OpenLed5();
+            }
+            else if (ledtime < 240)
+            {
+                OpenLed1(); OpenLed2(); OpenLed3();
+                OpenLed4(); OpenLed5();
+            }
+            else
+            {
+            //2.75~4.2  base 2.8 dv 0.23
+            //2.8(540)3.15(510) 3.5(466) 3.85(432) 4.2(409)
+            //2.8(540)3.03(522) 3.26(499) 3.5(464) 3.72(447)3.95(430)
+                if (ADCPowVal_Fix > 540)                //2.8V
+                    ledtime = 0;
+                else if (ADCPowVal_Fix > 510)           //3.15V
+                    ledtime = 40;
+                else if (ADCPowVal_Fix > 466)           //3.5V
+                    ledtime = 80;
+                else if (ADCPowVal_Fix > 432)           //3.85V
+                    ledtime = 120;
+                else if (ADCPowVal_Fix > 409)           //4.2V
+                    ledtime = 160;
+                else
+                    ledtime = 160;
+            }
+        }
+
+
+        /*
+        if( stdbcnt == 0x00 )
+        {
+          OpenLed1();
+          CloseLed2();
+          CloseLed3();
+          CloseLed4();
+          CloseLed5();
+        }
+        else
+        {
+          if( led_time < 50 )
+          {
+            CloseLed1();
+            CloseLed2();
+          }
+          else if( led_time < 100 )
+          {
+            CloseLed1();
+            OpenLed2();
+          }
+          else if( led_time < 150 )
+          {
+            OpenLed1();
+            OpenLed2();
+          }
+                else
+          {
+            led_time = 0;
+          }
+                OpenLed3();
+                OpenLed4();
+                OpenLed5();
+        }
+        */
+        Beep_Disable();
+    }
+
+#endif
+}
+
+
+//进入掉电模式
+void ToPowdown(void)        
+{
+    Bsp_IntDis();           //关闭中断
+    //CloseLed1(); CloseLed2(); CloseLed3(); CloseLed4(); CloseLed5();    //关闭LED
+    BK2425_SetToPD();       //设置遥控模块到掉电模式
+    Delay_Ms(10);           //延时
+
+    PoweFlag = FALSE;       //掉电
+
+    Delay_Ms(10);           //延时
+
+    Bsp_POW_Low();          //关闭电源
+    while(1){}
+}
+
+
+void AutoPowerOff_Proce(void)
+{
+    if (RP_ADValue > 40 || RP_ADValue < -40 || ChargeFlag == TRUE)  //遥控器有动作或者在充电
+    {
+        AutoPowerDownTime = 0;
+    }
+
+    if (AutoPowerDownTime > 90000)//10ms * (100 * 60 * 15)
+    {
+        //CloseLed1(); CloseLed2(); CloseLed3(); CloseLed4(); CloseLed5();    //关闭LED
+        Bsp_Beep_On();              //蜂鸣器滴一声
+        Delay_Ms(200);
+        Bsp_Beep_Off();
+        ToPowdown();                //烧完程序直接进掉电模式
+    }
+}
+
+void TIM4_Config(void)
+{
+  /* TIM4 configuration:
+   - TIM4CLK is set to 16 MHz, the TIM4 Prescaler is equal to 128 so the TIM1 counter
+   clock used is 16 MHz / 128 = 125 000 Hz
+  - With 125 000 Hz we can generate time base:
+      max time base is 2.048 ms if TIM4_PERIOD = 255 --> (255 + 1) / 125000 = 2.048 ms
+      min time base is 0.016 ms if TIM4_PERIOD = 1   --> (  1 + 1) / 125000 = 0.016 ms
+  - In this example we need to generate a time base equal to 1 ms
+   so TIM4_PERIOD = (0.001 * 125000 - 1) = 124 */
+
+  /* Time base configuration */
+  TIM4_TimeBaseInit(TIM4_PRESCALER_128, 249);   //(249+1) / 125000 = 2ms
+  /* Clear TIM4 update flag */
+  TIM4_ClearFlag(TIM4_FLAG_UPDATE);
+  /* Enable update interrupt */
+  TIM4_ITConfig(TIM4_IT_UPDATE, ENABLE);
+  
+    /* Enable TIM4 */
+  TIM4_Cmd(ENABLE);
+}
+
+void Value_Init(void)
+{
+    keytime = 0;
+}
+
+//系统初始化
+void System_Init(void)          
+{
+    Bsp_Init();
+    Bsp_DelayMs(1000);
+    Bsp_Motor_Off();
+    Bsp_Beep_Off();
+    
+    Mod_OLEDInit();
+    Mod_OLEDDisplay((INT8U*)bkgpic);
+
+    Mod_OLEDDisp_ChrgeIcon(0);
+    Mod_OLEDDisp_RfStateIcon(0);
+    Mod_OLEDDisp_BoardChrgeIcon(0);
+    Mod_OLEDDisp_HighSpeedIcom(0);
+    Mod_OLEDDisp_LowSpeedIcom(0);
+    Mod_OLEDDisp_PatrolIcom(0);
+
+
+    Delay_Ms(100);
+   
+    GetChipID();
+    BK2425_Initialize((void*)RF_DataProcess, TX_Addr, RX1_Addr, TX_Addr);     //自己的地址发送接收 
+    
+
+    /* De-Init ADC peripheral*/
+    ADC1_DeInit();
+
+    /* Init ADC2 peripheral */
+    ADC1_Init(ADC1_CONVERSIONMODE_SINGLE, ADC1_CHANNEL_9, ADC1_PRESSEL_FCPU_D2, \
+              ADC1_EXTTRIG_TIM, DISABLE, ADC1_ALIGN_RIGHT, ADC1_SCHMITTTRIG_CHANNEL9,\
+              DISABLE);
+
+    TIM4_Config();          
+              
+
+    Value_Init();  
+    
+    Bsp_IntEn();      //开启中断
+
+}
+
+
 void main(void)
 {
     System_Init();                  //系统初始化
+    ADC_GetBase();                 //获取ADC偏置值
+
     while(1)
     {
-    
+        if (SysTick)                //10ms
+        {  
+            SysTick = 0;
+            
+            
+            InPut_Proce();
+        }
     }
+
 #if 0
-    ADC1_GetBase();                 //获取ADC偏置值
     while (1)
     {
         if (SysTick)                //10ms
@@ -512,7 +1365,7 @@ void main(void)
                     keytime1 = 1;                   //按键计时1开启计时
                     FirstRunFlag = TRUE;            //第一次运行
                     FirstRunCnt = 0;                //第一次运行计数清零 
-                    RPPowUpReset = TRUE;           //电位器 上电是否在中间
+                    RPPowUpReset = TRUE;            //电位器 上电是否在中间
                     SwitchRFtoWorkMode();           //无线遥控转入工作模式
                     
                     //OpenLed1(); OpenLed2(); OpenLed3(); OpenLed4(); OpenLed5();         //灯闪一下
@@ -521,7 +1374,7 @@ void main(void)
                     Delay_Ms(200);
                     Bsp_Beep_Off();
                     Delay_Ms(800);
-                    CloseLed1(); CloseLed2(); CloseLed3(); CloseLed4(); CloseLed5();
+                    //CloseLed1(); CloseLed2(); CloseLed3(); CloseLed4(); CloseLed5();
                 }
             }
             else
@@ -556,7 +1409,7 @@ void main(void)
 
                     if (keycnt == 0x00)    //按键释放
                     {
-                    keytime1 = 0;
+                        keytime1 = 0;
                     }
 
                     AutoPowerOff_Proce();                       //自动关机处理

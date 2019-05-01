@@ -96,24 +96,24 @@ UINT8 SPI_RW(UINT8 value)
 	{
 		if(value & 0x80)
 		{
-			MOSIHI();
+			Bsp_MOSI_High();
 		}
 		else
 		{
-			MOSILOW();		
+			Bsp_MOSI_Low();		
 		}
 		for(i = 4;i > 0;i --);						// Delay
 
 		value = (value << 1);             // shift next bit into MSB..
-		SCKHI();                          // Set SCK high..
+		Bsp_SCK_High();                          // Set SCK high..
 		for(i = 2;i > 0;i --);						// Delay
 		
 		//value |= MISO;       		        // capture current MISO bit
-    if( MISOVal() != 0)
-      value |= 1;
+                if( Bsp_MISO_Read() != 0)
+                  value |= 1;
 			
 		for(i = 2;i > 0;i --);						// Delay
-		SCKLOW();            		          // ..then set SCK low again
+		Bsp_SCK_Low();            		          // ..then set SCK low again
 	}
 	return(value);           		        // return read UINT8
 }                                                           
@@ -127,10 +127,10 @@ Description:
 /**************************************************/        
 void SPI_Write_Reg(UINT8 reg, UINT8 value)                 
 {
-	CSNLOW();                   // CSN low, init SPI transaction
+	Bsp_CSN_Low();                   // CSN low, init SPI transaction
 	op_status = SPI_RW(reg);      // select register
 	SPI_RW(value);             // ..and write value to it..
-	CSNHI();                   // CSN high again
+	Bsp_CSN_High();                   // CSN high again
 }                                                           
 /**************************************************/        
                                                             
@@ -143,10 +143,10 @@ Description:
 UINT8 SPI_Read_Reg(UINT8 reg)                               
 {                                                           
 	UINT8 value;
-	CSNLOW();                // CSN low, initialize SPI communication...
+	Bsp_CSN_Low();                // CSN low, initialize SPI communication...
 	op_status=SPI_RW(reg);            // Select register to read from..
 	value = SPI_RW(0);    // ..then read register value
-	CSNHI();                // CSN high, terminate SPI communication
+	Bsp_CSN_High();                // CSN high, terminate SPI communication
 
 	return(value);        // return register value
 }                                                           
@@ -162,13 +162,13 @@ void SPI_Read_Buf(UINT8 reg, UINT8 *pBuf, UINT8 length)
 {                                                           
 	UINT8 status,byte_ctr;                              
                                                             
-	CSNLOW();                    		// Set CSN l
+	Bsp_CSN_Low();                    		// Set CSN l
 	status = SPI_RW(reg);       		// Select register to write, and read status UINT8
                                                             
 	for(byte_ctr=0;byte_ctr<length;byte_ctr++)           
 		pBuf[byte_ctr] = SPI_RW(0);    // Perform SPI_RW to read UINT8 from BK2425
                                                             
-	CSNHI();                           // Set CSN high again
+	Bsp_CSN_High();                           // Set CSN high again
                
 }                                                           
 /**************************************************/        
@@ -183,11 +183,11 @@ void SPI_Write_Buf(UINT8 reg, UINT8 *pBuf, UINT8 length)
 {                                                           
 	UINT8 byte_ctr;                              
                                                             
-	CSNLOW();                   // Set CSN low, init SPI tranaction
+	Bsp_CSN_Low();                   // Set CSN low, init SPI tranaction
 	op_status = SPI_RW(reg);    // Select register to write to and read status UINT8
 	for(byte_ctr=0; byte_ctr<length; byte_ctr++) // then write all UINT8 in buffer(*pBuf) 
 		SPI_RW(*pBuf++);                                    
-	CSNHI();                 // Set CSN high again      
+	Bsp_CSN_High();                 // Set CSN high again      
 
 }                                                           
 /**************************************************/        
@@ -207,14 +207,14 @@ void SwitchToRxMode(void)
 	value=SPI_Read_Reg(STATUS);	// read register STATUS's value
 	SPI_Write_Reg(WRITE_REG|STATUS,value);// clear RX_DR or TX_DS or MAX_RT interrupt flag
 
-	CELOW();
+	Bsp_CE_Low();
 
 	value=SPI_Read_Reg(CONFIG);	// read register CONFIG's value
 //PRX
 	value=value|0x01;//set bit 1
   	SPI_Write_Reg(WRITE_REG | CONFIG, value); // Set PWR_UP bit, enable CRC(2 length) & Prim:RX. RX_DR enabled..
 
-	CEHI();
+	Bsp_CE_High();
 }
 
 /**************************************************
@@ -227,13 +227,13 @@ void SwitchToTxMode(void)
 	UINT8 value;
 	SPI_Write_Reg(FLUSH_TX,0);//flush Tx
 
-	CELOW();
+	Bsp_CE_Low();
 	value=SPI_Read_Reg(CONFIG);	// read register CONFIG's value
 //PTX
 	value=value&0xfe;//set bit 1
   	SPI_Write_Reg(WRITE_REG | CONFIG, value); // Set PWR_UP bit, enable CRC(2 length) & Prim:RX. RX_DR enabled.
 
-	CEHI();
+	Bsp_CE_High();
 }
 
 /**************************************************
@@ -489,3 +489,5 @@ void  BK2425_SetToPD(void)
   //reg 10 - Rx0 addr 数据流0地址
 	SPI_Write_Reg((WRITE_REG|0),0x0d);
 }
+
+

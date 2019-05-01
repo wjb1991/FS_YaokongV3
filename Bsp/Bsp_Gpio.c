@@ -50,8 +50,13 @@ BOOL Bsp_GpioInit(void)
     GPIO_Init(GPIOA, GPIO_PIN_3, GPIO_MODE_IN_PU_NO_IT);        //CHRG
     GPIO_Init(GPIOF, GPIO_PIN_4, GPIO_MODE_IN_PU_NO_IT);        //STDBY
     
+    /*  Init GPIO for ADC2 */
+    GPIO_Init(GPIOB, GPIO_PIN_0, GPIO_MODE_IN_FL_NO_IT);
+    GPIO_Init(GPIOB, GPIO_PIN_1, GPIO_MODE_IN_FL_NO_IT);
+    
     return TRUE;
 }
+
 
 
 

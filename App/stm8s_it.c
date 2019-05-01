@@ -30,6 +30,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm8s_it.h"
 
+extern void Tim4_Updata_Irq(void);
+
 /** @addtogroup Template_Project
   * @{
   */
@@ -489,6 +491,9 @@ INTERRUPT_HANDLER(TIM6_UPD_OVF_TRG_IRQHandler, 23)
   /* In order to detect unexpected events during development,
      it is recommended to set a breakpoint on the following instruction.
   */
+  Tim4_Updata_Irq();
+  /* Cleat Interrupt Pending bit */
+  TIM4_ClearITPendingBit(TIM4_IT_UPDATE);
  }
 #endif /* (STM8S903) || (STM8AF622x)*/
 

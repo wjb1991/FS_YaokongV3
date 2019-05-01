@@ -3,8 +3,6 @@
 
 #include "Bsp.h"
 
-
-
 #include "bk2425.h"
 
 typedef unsigned char  (*RFProc_CB)(unsigned char  len, unsigned char  *pBuff);

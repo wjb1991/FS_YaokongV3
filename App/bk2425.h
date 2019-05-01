@@ -130,4 +130,6 @@ void  SetRX0Addr(UINT8* RX0_Addr);
 
 void  BK2425_SetToPD(void);
 
+UINT8 Get_Chip_ID(void);
+
 #endif
